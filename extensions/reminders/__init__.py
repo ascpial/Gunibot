@@ -21,11 +21,13 @@ class Reminders(commands.Cog):
     def __init__(self, bot: Gunibot) -> None:
         self.bot = bot
         self.reminder_manager = ReminderManager(self.bot)
+        self.bot.configuration.add_guilds(self.reminder)
+        self.bot.configuration.add_guilds(self.create_timestamp)
     
     @nextcord.slash_command(
         name="reminder",
         description="Permet de gérer des rappels.",
-        guild_ids=[941014823574061087],
+        guild_ids=[],
     )
     async def reminder(self, inter: nextcord.Interaction) -> None:
         pass
