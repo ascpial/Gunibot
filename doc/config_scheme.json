@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "description": "La configuration du Gunibot",
+    "properties": {
+        "discord": {
+            "description": "Les paramètres de l'environnement discord, notamment le token du bot. Requis.",
+            "type":"object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Le token du bot"
+                },
+                "owners": {
+                    "type": "array",
+                    "description": "Les IDs des utilisateurs qui pourront utiliser toutes les commandes du bot.",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "Le préfix du bot."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "La description qui sera affichée dans la commande d'aide du bot."
+                },
+                "guild_ids": {
+                    "type": "array",
+                    "description": "Les serveurs sur lesquels seront ajoutés les slash commands.",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "required": [
+                "token"
+            ]
+        },
+        "database": {
+            "description": "La configuration de la base de données.",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "L'emplacement de la base de données."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Le tpe de base de données, par exemple sqlite ou mysql."
+                },
+                "location": {
+                    "type": "string",
+                    "description": "L'emplacement de la base de données. Laisser vide pour une base de données locale, sinon il est possible d'utiliser un domaine, etc..."
+                }
+            }
+        }
+    },
+    "required": [
+        "discord"
+    ]
+}

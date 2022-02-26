@@ -1,0 +1,10 @@
+# fichiers de configuration de VSCode
+.vscode/
+
+# dossiers / fichiers relatifs à python
+__pycache__/
+venv/
+
+# fichiers / dossiers relatifs au bot (database...)
+database.db
+configuration.json
