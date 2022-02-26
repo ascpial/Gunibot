@@ -2,18 +2,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import datetime
-import re
 import base64
 
 import nextcord
 from nextcord.ext import commands
 from nextcord.ext import tasks
+import sqlalchemy
 
 from .reminder_manager import ReminderManager
 from .reminder import Reminder
 
 if TYPE_CHECKING:
     from gunibot import Gunibot
+
+EMPTY_AUTOCOMPLETE = "Il n'y a rien à voir ici..."
 
 class Reminders(commands.Cog):
     def __init__(self, bot: Gunibot) -> None:
@@ -49,29 +51,40 @@ class Reminders(commands.Cog):
         user: nextcord.User = nextcord.SlashOption(
             description="L'utilisateur à qui ajouter le rappel.",
             required=False,
+        ),
+        notification: bool = nextcord.SlashOption(
+            description="Indique si le bot doit envoyer un message de rappel.",
+            required=False,
         )
     ) -> None:
         if scheduled.isdigit():
             scheduled = datetime.datetime.fromtimestamp(int(scheduled))
-        reminder = self.reminder_manager.create_reminder(
-            inter.user,
-            name,
-            scheduled,
-            description
-        )
-        await inter.send(
-            "Le rappel a bien été créé !",
-            embed=await reminder.get_embed(self.bot),
-            view=reminder.get_view(),
-            ephemeral=True,
-        )
-
-    @reminder.subcommand(
-        name="list",
-        description="Liste tous les rappels ajoutés à ton compte."
-    )
-    async def reminder_list(self, inter: nextcord.Interaction) -> None:
-        pass
+        try:
+            reminder = self.reminder_manager.create_reminder(
+                user if user is not None else inter.user,
+                name,
+                scheduled,
+                description,
+                notification,
+                inter.user if user is not None else None,
+            )
+        except ValueError:
+            await inter.send(
+                "Vous avez déjà un rappel avec ce nom. Utilisez en un autre !",
+                ephemeral=True,
+            )
+        except SyntaxError:
+            await inter.send(
+                "Il y a une erreur dans la syntaxe crontab.",
+                ephemeral=True,
+            )
+        else:
+            await inter.send(
+                "Le rappel a bien été créé !",
+                embed=await reminder.get_embed(self.bot),
+                view=reminder.get_view(),
+                ephemeral=True,
+            )
     
     @reminder.subcommand(
         name="show",
@@ -86,18 +99,29 @@ class Reminders(commands.Cog):
             autocomplete=True,
         )
     ) -> None:
-        reminder = self.bot.database.session.query(
-            Reminder
-        ).filter(
-            Reminder.name == reminder
-        ).one()
-        
-        await inter.send(
-            embed = await reminder.get_embed(self.bot),
-            view=reminder.get_view(),
-            ephemeral=True,
-        )
-
+        try:
+            reminder = self.bot.database.session.query(
+                Reminder
+            ).filter(
+                Reminder.name == reminder
+            ).one()
+            
+            await inter.send(
+                embed = await reminder.get_embed(self.bot),
+                view=reminder.get_view(),
+                ephemeral=True,
+            )
+        except sqlalchemy.orm.exc.NoResultFound:
+            if reminder == EMPTY_AUTOCOMPLETE:
+                await inter.send(
+                    "Tu n'as pas de rappels. Utilises `/reminder create` pour en créer un !",
+                    ephemeral=True,
+                )
+            else:
+                await inter.send(
+                    f"Le rappel {reminder} n'a pas été trouvé...",
+                    ephemeral=True,
+                )
     @reminder_show.on_autocomplete('reminder')
     async def reminder_show_reminder_autocomplete(
         self,
@@ -107,10 +131,14 @@ class Reminders(commands.Cog):
         reminders = self.bot.database.session.query(
             Reminder
         ).filter(
-            Reminder.name.startswith(focused_option_value)
+            Reminder.name.startswith(focused_option_value),
+            Reminder.user == inter.user.id
         ).all()
         
-        return [reminder.name for reminder in reminders[:25]]
+        if len(reminders) > 0:
+            return [reminder.name for reminder in reminders[:25]]
+        else:
+            return [EMPTY_AUTOCOMPLETE]
         
     def get_reminder_id(self, raw_reminder_id: str) -> int:
         bytes = base64.b64decode(raw_reminder_id)
@@ -133,28 +161,60 @@ class Reminders(commands.Cog):
     
     @commands.Cog.listener()
     async def on_interaction(self, inter: nextcord.Interaction):
-        if inter.type == nextcord.InteractionType.component:
-            custom_id = inter.data['custom_id']
-            if custom_id.startswith('delete_reminder_'):
-                reminder = self.get_reminder(custom_id[16:])
-                self.bot.database.session.delete(reminder)
-                view = reminder.get_view()
-                for item in view.children:
-                    if isinstance(item, nextcord.ui.Button):
-                        item.disabled = True
-                await inter.edit_original_message(
-                    embed=await reminder.get_embed(self.bot),
-                    view=view,
-                )
-            elif custom_id.startswith('notification_reminder_'):
-                reminder = self.get_reminder(custom_id[22:])
-                reminder.notification = not reminder.notification
-                await inter.edit_original_message(
-                    embed=await reminder.get_embed(self.bot),
-                    view=reminder.get_view(),
-                )
-            elif custom_id.startswith('notification_edit_'):
-                await inter.send('Not implemented yet.', ephemeral=True)
+        try:
+            if inter.type == nextcord.InteractionType.component:
+                custom_id = inter.data['custom_id']
+                if custom_id.startswith('delete_reminder_'):
+                    reminder = self.get_reminder(custom_id[16:])
+                    self.bot.database.session.delete(reminder)
+                    view = reminder.get_view()
+                    for item in view.children:
+                        if isinstance(item, nextcord.ui.Button):
+                            item.disabled = True
+                    await inter.response.edit_message(
+                        embed=await reminder.get_embed(self.bot),
+                        view=view,
+                    )
+                elif custom_id.startswith('notification_reminder_'):
+                    reminder = self.get_reminder(custom_id[22:])
+                    reminder.notification = not reminder.notification
+                    await inter.response.edit_message(
+                        embed=await reminder.get_embed(self.bot),
+                        view=reminder.get_view(),
+                    )
+                elif custom_id.startswith('edit_reminder_'):
+                    await inter.send('Not implemented yet.', ephemeral=True)
+        except sqlalchemy.exc.NoResultFound:
+            await inter.send("Le rappel n'existe plus.", ephemeral=True)
+    
+    @nextcord.slash_command(
+        name="timestamp",
+        description="Génère un timestamp unix en fonction de la date et l'heure indiquée.",
+        guild_ids=[941014823574061087],
+    )
+    async def create_timestamp(
+        self, 
+        inter: nextcord.Interaction,
+        year: int = nextcord.SlashOption(min_value=1970),
+        month: int = nextcord.SlashOption(min_value=1, max_value=12),
+        day: int = nextcord.SlashOption(min_value=1, max_value=31),
+        hour: int = nextcord.SlashOption(required=False, min_value=1, max_value=24, default=0),
+        minute: int = nextcord.SlashOption(required=False, min_value=1, max_value=60, default=0),
+        second: int = nextcord.SlashOption(required=False, min_value=1, max_value=60, default=0),
+    ) -> None:
+        try:
+            timestamp = int(datetime.datetime(
+                year, month, day,
+                hour, minute, second
+            ).timestamp())
+            await inter.send(
+                f"Le timestamp de la date <t:{timestamp}> est `{timestamp}`."
+            )
+        except ValueError:
+            await inter.send(
+                "La date indiquée est invalide.",
+                ephemeral=False,
+            )
 
 def setup(bot: Gunibot) -> None:
     bot.add_cog(Reminders(bot))

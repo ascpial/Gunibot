@@ -153,7 +153,7 @@ class Reminder(Base):
         return embed
 
     def get_view(self) -> nextcord.ui.View:
-        view = nextcord.ui.View(timeout=0)
+        view = nextcord.ui.View(timeout=0.1)
         view.add_item(
             nextcord.ui.Button(
                 custom_id=f'delete_reminder_{self.encoded_id}',

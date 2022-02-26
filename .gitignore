@@ -8,3 +8,4 @@ venv/
 # fichiers / dossiers relatifs au bot (database...)
 database.db
 configuration.json
+database.db-journal
