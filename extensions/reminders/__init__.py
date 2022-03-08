@@ -95,37 +95,35 @@ class Reminders(commands.Cog):
     async def reminder_show(
         self,
         inter: nextcord.Interaction,
-        reminder: str = nextcord.SlashOption(
+        reminder_name: str = nextcord.SlashOption(
+            name="reminder",
             description="Le nom du rappel à afficher",
             required=True,
             autocomplete=True,
         )
     ) -> None:
-        try:
-            reminder = self.bot.database.session.query(
-                Reminder
-            ).filter(
-                Reminder.name == reminder
-            ).one()
-            
+        reminder = self.reminder_manager.get_reminder_by_name(reminder_name)
+        
+        if reminder is not None:
             await inter.send(
                 embed = await reminder.get_embed(self.bot),
                 view=reminder.get_view(),
                 ephemeral=True,
             )
-        except sqlalchemy.orm.exc.NoResultFound:
-            if reminder == EMPTY_AUTOCOMPLETE:
+        else:
+            if reminder_name == EMPTY_AUTOCOMPLETE:
                 await inter.send(
                     "Tu n'as pas de rappels. Utilises `/reminder create` pour en créer un !",
                     ephemeral=True,
                 )
             else:
                 await inter.send(
-                    f"Le rappel {reminder} n'a pas été trouvé...",
+                    f"Le rappel {reminder_name} n'a pas été trouvé...",
                     ephemeral=True,
                 )
+
     @reminder_show.on_autocomplete('reminder')
-    async def reminder_show_reminder_autocomplete(
+    async def reminder_autocomplete(
         self,
         inter: nextcord.Interaction,
         focused_option_value: str,
@@ -141,16 +139,6 @@ class Reminders(commands.Cog):
             return [reminder.name for reminder in reminders[:25]]
         else:
             return [EMPTY_AUTOCOMPLETE]
-        
-    def get_reminder_id(self, raw_reminder_id: str) -> int:
-        bytes = base64.b64decode(raw_reminder_id)
-        return int.from_bytes(bytes, byteorder='little')
-
-    def get_reminder(self, raw_reminder_id: str) -> Reminder:
-        reminder_id = self.get_reminder_id(raw_reminder_id)
-        return self.bot.database.session.query(
-            Reminder
-        ).filter(Reminder.id==reminder_id).one()
     
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -163,31 +151,37 @@ class Reminders(commands.Cog):
     
     @commands.Cog.listener()
     async def on_interaction(self, inter: nextcord.Interaction):
-        try:
-            if inter.type == nextcord.InteractionType.component:
-                custom_id = inter.data['custom_id']
-                if custom_id.startswith('delete_reminder_'):
-                    reminder = self.get_reminder(custom_id[16:])
-                    self.bot.database.session.delete(reminder)
-                    view = reminder.get_view()
-                    for item in view.children:
-                        if isinstance(item, nextcord.ui.Button):
-                            item.disabled = True
-                    await inter.response.edit_message(
-                        embed=await reminder.get_embed(self.bot),
-                        view=view,
-                    )
-                elif custom_id.startswith('notification_reminder_'):
-                    reminder = self.get_reminder(custom_id[22:])
-                    reminder.notification = not reminder.notification
-                    await inter.response.edit_message(
-                        embed=await reminder.get_embed(self.bot),
-                        view=reminder.get_view(),
-                    )
-                elif custom_id.startswith('edit_reminder_'):
-                    await inter.send('Not implemented yet.', ephemeral=True)
-        except sqlalchemy.exc.NoResultFound:
-            await inter.send("Le rappel n'existe plus.", ephemeral=True)
+        if inter.type == nextcord.InteractionType.component:
+            custom_id = inter.data['custom_id']
+
+            if custom_id.startswith('delete_reminder_'):
+                reminder = self.reminder_manager.get_reminder(custom_id[16:])
+
+                self.reminder_manager.delete_reminder(reminder)
+
+                view = reminder.get_view()
+
+                for item in view.children: # disable all buttons
+                    if isinstance(item, nextcord.ui.Button):
+                        item.disabled = True
+
+                await inter.response.edit_message(
+                    embed=await reminder.get_embed(self.bot),
+                    view=view,
+                )
+
+            elif custom_id.startswith('notification_reminder_'):
+                reminder = self.reminder_manager.get_reminder(custom_id[22:])
+                
+                reminder.notification = not reminder.notification # reverse the state of the notification
+
+                await inter.response.edit_message(
+                    embed=await reminder.get_embed(self.bot),
+                    view=reminder.get_view(),
+                )
+
+            elif custom_id.startswith('edit_reminder_'):
+                await inter.send('Not implemented yet.', ephemeral=True) # TODO when modals will be finished
     
     @nextcord.slash_command(
         name="timestamp",
