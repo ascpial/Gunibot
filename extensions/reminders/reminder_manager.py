@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 class ReminderManager:
     def __init__(self, bot: Gunibot) -> None:
         self.bot = bot
-
-        Reminder.metadata.create_all(self.bot.database.engine)
+        
+        bot.add_orm(Reminder)
     
     def create_reminder(
         self,

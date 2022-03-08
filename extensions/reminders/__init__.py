@@ -12,10 +12,10 @@ import sqlalchemy
 from .reminder_manager import ReminderManager
 from .reminder import Reminder
 
+from gunibot import EMPTY_AUTOCOMPLETE
+
 if TYPE_CHECKING:
     from gunibot import Gunibot
-
-EMPTY_AUTOCOMPLETE = "Il n'y a rien à voir ici..."
 
 class Reminders(commands.Cog):
     def __init__(self, bot: Gunibot) -> None:

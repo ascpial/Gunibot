@@ -9,6 +9,8 @@ from nextcord.ext import commands
 from .configuration import Configuration
 from .database import Database
 
+if TYPE_CHECKING:
+    from .database import Base
 
 __all__ = [
     "Gunibot",
@@ -28,6 +30,7 @@ class Gunibot(commands.Bot):
     
     def run(self) -> None:
         self.database.connect()
+        self.database.create_all()
         
         super().run(self.configuration.token)
     
@@ -44,3 +47,6 @@ class Gunibot(commands.Bot):
         await super().close()
         self.database.session.commit()
         self.database.close()
+    
+    def add_orm(self, object: Base) -> None:
+        self.database.add(object)

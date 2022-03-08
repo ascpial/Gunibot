@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Database",
+    "Base",
 ]
 
 Base = sqlalchemy.orm.declarative_base()
@@ -15,6 +16,7 @@ Base = sqlalchemy.orm.declarative_base()
 class Database:
     def __init__(self, bot: Gunibot) -> None:
         self.bot = bot
+        self.models = []
         self.Base = Base
         self.engine = sqlalchemy.create_engine(
             f"{self.bot.configuration.database_type}://{self.bot.configuration.database_location}/{self.bot.configuration.database_path}"
@@ -26,3 +28,13 @@ class Database:
     
     def close(self) -> None:
         self.session.close()
+
+    def add(self, object: Base) -> None:
+        if not issubclass(object, Base):
+            raise ValueError("object must be a subclass of Base")
+        if object not in self.models:
+            self.models.append(object)
+    
+    def create_all(self) -> None:
+        for object in self.models:
+            object.metadata.create_all(self.engine)
