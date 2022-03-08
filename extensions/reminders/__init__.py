@@ -122,7 +122,7 @@ class Reminders(commands.Cog):
                     ephemeral=True,
                 )
 
-    @reminder_show.on_autocomplete('reminder')
+    @reminder_show.on_autocomplete('reminder_name')
     async def reminder_autocomplete(
         self,
         inter: nextcord.Interaction,
