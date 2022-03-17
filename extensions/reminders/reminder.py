@@ -182,7 +182,7 @@ class Reminder(Base):
     async def get_embed(self, bot: Gunibot) -> nextcord.Embed:
         embed = nextcord.Embed(
             title=f"Rappel : {self.name}",
-            color=0x2f3136,
+            color=0xF76000,
             description=self.description if self.description is not None else "",
             timestamp=self.next(),
         )
@@ -193,7 +193,7 @@ class Reminder(Base):
         author = await self.get_author(bot)
         if author is not None:
             embed.set_author(
-                name=author.name,
+                name=f"{author.name}#{author.discriminator}",
                 icon_url=author.avatar.url,
             )
         embed.set_thumbnail(
