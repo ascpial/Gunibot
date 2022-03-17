@@ -18,6 +18,55 @@ NOTIFICATION = [
     "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/60/twitter/282/bell_1f514.png",
 ]
 
+class ReminderModal(nextcord.ui.Modal):
+    def __init__(self, reminder: Reminder, user: nextcord.User):
+        self.reminder = reminder
+        self.user = user
+        super().__init__(
+            "Modifier un rappel",
+        )
+        self.name = nextcord.ui.TextInput(
+            label="Nom",
+            max_length=100,
+            required=True,
+            default_value=reminder.name,
+            placeholder="Aller en cours de..."
+        )
+        self.description = nextcord.ui.TextInput(
+            label="Description",
+            max_length=2000,
+            required=False,
+            default_value=reminder.description,
+            placeholder="Ne pas oublier de prendre mon cerveau",
+            style=nextcord.TextInputStyle.paragraph,
+        )
+        # TODO: ajouter le "scheduled"
+        
+        self.add_item(self.name)
+        self.add_item(self.description)
+    
+    async def callback(self, inter: nextcord.Interaction):
+        if inter.user != self.user:
+            await inter.send(
+                "Vous n'avez pas l'autorisation de modifier ce rappel",
+                ephemeral=True,
+            )
+            return
+        self.reminder.name = self.name.value
+        self.reminder.description = self.description.value
+        try:
+            await inter.response.edit_message(
+                embed=await self.reminder.get_embed(inter.client),
+                view=self.reminder.get_view(),
+            )
+        except nextcord.NotFound:
+            await inter.send(
+                ":white_check_mark: Votre rappel a bien été modifié !",
+                embed=await self.reminder.get_embed(inter.client),
+                view=self.reminder.get_view(),
+                ephemeral=True,
+            )
+
 class Reminder(Base):
     __tablename__ = "reminders"
     
@@ -179,6 +228,12 @@ class Reminder(Base):
             )
         )
         return view
+
+    def get_edit_modal(self, user: nextcord.User):
+        return ReminderModal(
+            self,
+            user,
+        )
 
     def __repr__(self) -> str:
         return f"<Reminder id={repr(self.id)} name={repr(self.name)} time={repr(self.time)} scheduled={repr(self.scheduled)} next={self.next()} sended={self.sended}>"

@@ -181,7 +181,8 @@ class Reminders(commands.Cog):
                 )
 
             elif custom_id.startswith('edit_reminder_'):
-                await inter.send('Not implemented yet.', ephemeral=True) # TODO when modals will be finished
+                reminder = self.reminder_manager.get_reminder(custom_id[14:])
+                await inter.response.send_modal(reminder.get_edit_modal(inter.user))
     
     @nextcord.slash_command(
         name="timestamp",
