@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import logging
+import base64
 
 import nextcord
 from nextcord.ext import commands
@@ -50,3 +51,7 @@ class Gunibot(commands.Bot):
     
     def add_orm(self, object: Base) -> None:
         self.database.add(object)
+    
+    def get_int_from_base64(self, bytes: str) -> int:
+        bytes = base64.b64decode(bytes)
+        return int.from_bytes(bytes, byteorder='little')

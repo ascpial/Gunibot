@@ -12,6 +12,7 @@ def run():
     
     bot.load_extension("extensions.hello_world")
     bot.load_extension("extensions.reminders")
+    bot.load_extension("extensions.rolelink")
     
     bot.run()
 
